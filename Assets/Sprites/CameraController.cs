@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 public class CameraController : MonoBehaviour
@@ -7,7 +8,10 @@ public class CameraController : MonoBehaviour
     public float minZoom = 2f;
 
     private Camera cam;
-    private SpriteRenderer background;
+
+    // 모든 Background를 합친 영역
+    private Bounds mapBounds;
+    private bool mapFound = false;
 
     private float minX;
     private float maxX;
@@ -17,14 +21,61 @@ public class CameraController : MonoBehaviour
     void Start()
     {
         cam = GetComponent<Camera>();
+        StartCoroutine(FindBackgrounds());
+    }
 
-        background = GameObject.Find("Background").GetComponent<SpriteRenderer>();
+    IEnumerator FindBackgrounds()
+    {
+        while (!mapFound)
+        {
+            GameObject[] objects = FindObjectsByType<GameObject>(
+                FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None
+            );
 
-        UpdateBounds();
+            bool first = true;
+
+            foreach (GameObject obj in objects)
+            {
+                if (obj.name.Contains("Background"))
+                {
+                    SpriteRenderer sr = obj.GetComponent<SpriteRenderer>();
+
+                    if (sr != null)
+                    {
+                        if (first)
+                        {
+                            mapBounds = sr.bounds;
+                            first = false;
+                        }
+                        else
+                        {
+                            mapBounds.Encapsulate(sr.bounds);
+                        }
+
+                        Debug.Log("Background 발견 : " + obj.name);
+                    }
+                }
+            }
+
+            if (!first)
+            {
+                mapFound = true;
+                UpdateBounds();
+                ClampCamera();
+                Debug.Log("Background 전체 영역 계산 완료");
+                yield break;
+            }
+
+            yield return null;
+        }
     }
 
     void Update()
     {
+        if (!mapFound)
+            return;
+
         MoveCamera();
         ZoomCamera();
     }
@@ -47,8 +98,8 @@ public class CameraController : MonoBehaviour
 
         cam.orthographicSize -= scroll * zoomSpeed;
 
-        float bgHeight = background.bounds.size.y;
-        float bgWidth = background.bounds.size.x;
+        float bgHeight = mapBounds.size.y;
+        float bgWidth = mapBounds.size.x;
 
         float screenRatio = (float)Screen.width / Screen.height;
 
@@ -64,22 +115,19 @@ public class CameraController : MonoBehaviour
         );
 
         UpdateBounds();
-
         ClampCamera();
     }
 
     void UpdateBounds()
     {
-        Bounds bounds = background.bounds;
-
         float vertExtent = cam.orthographicSize;
         float horzExtent = vertExtent * Screen.width / Screen.height;
 
-        minX = bounds.min.x + horzExtent;
-        maxX = bounds.max.x - horzExtent;
+        minX = mapBounds.min.x + horzExtent;
+        maxX = mapBounds.max.x - horzExtent;
 
-        minY = bounds.min.y + vertExtent;
-        maxY = bounds.max.y - vertExtent;
+        minY = mapBounds.min.y + vertExtent;
+        maxY = mapBounds.max.y - vertExtent;
     }
 
     void ClampCamera()
