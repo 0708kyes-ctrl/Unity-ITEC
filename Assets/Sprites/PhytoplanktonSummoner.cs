@@ -4,43 +4,41 @@ public class PhytoplanktonSummoner : MonoBehaviour
 {
     public GameObject phytoplanktonPrefab;
 
-    public float spawnInterval = 1f;
+    [Header("Spawn Settings")]
+    public float spawnInterval = 3f;
+
+    [Range(0f, 1f)]
+    public float spawnChance = 0.3f;
+
+    private SpriteRenderer spriteRenderer;
 
     void Start()
     {
-        InvokeRepeating("SpawnPhytoplankton", 0f, spawnInterval);
+        spriteRenderer = GetComponent<SpriteRenderer>();
+
+        InvokeRepeating(nameof(TrySpawnPhytoplankton), 0f, spawnInterval);
     }
 
-    void SpawnPhytoplankton()
+    void TrySpawnPhytoplankton()
     {
-        float y;
-
-        // 3개 구역 중 하나 선택
-        int zone = Random.Range(0, 10);
-
-        if (zone <= 4)
+        // 소환 확률
+        if (Random.value > spawnChance)
         {
-            // 표층: 위에서부터 0 ~ 20
-            y = Random.Range(0f, 20f);
+            return;
         }
-        else if (zone <= 7)
-        {
-            // 수온약층: 위에서부터 20 ~ 45
-            y = Random.Range(20f, 45f);
-        }
-        else
-        {
-            // 심해층: 위에서부터 45 ~ 90
-            y = Random.Range(45f, 90f);
-        }
-        // Summoner 기준 위치
-        Vector3 spawnPosition = transform.position;
 
-        // Y 위치
-        spawnPosition.y += y;
+        // 객체의 실제 월드 영역
+        Bounds bounds = spriteRenderer.bounds;
 
-        // X 위치를 -50 ~ +50 사이에서 랜덤
-        spawnPosition.x += Random.Range(-50f, 50f);
+        // 객체 전체 영역에서 랜덤한 위치
+        float randomX = Random.Range(bounds.min.x, bounds.max.x);
+        float randomY = Random.Range(bounds.min.y, bounds.max.y);
+
+        Vector3 spawnPosition = new Vector3(
+            randomX,
+            randomY,
+            transform.position.z
+        );
 
         Instantiate(
             phytoplanktonPrefab,

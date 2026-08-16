@@ -5,31 +5,30 @@ public class FishAI : MonoBehaviour
     [Header("이동")]
     public float moveSpeed = 2f;
 
-    [Header("수심 범위")]
-    public float minDepth = -3f;
-    public float maxDepth = 3f;
+    [Header("서식지")]
+    public GameObject[] habitats;
 
     [Header("체력")]
+    public float maxHealth = 100f;
     public float health = 100f;
-    public float normalHealthLoss = 1f;
-    public float dangerHealthLoss = 5f;
+
+    public float normalHealthLoss = 4f;
+
+    // 서식지 밖에서 최대 체력의 10%
+    public float dangerHealthLossPercent = 0.1f;
+
+    [Header("먹이")]
+    public GameObject foodPrefab;
+
+    [Header("번식")]
+    [Range(0f, 1f)]
+    public float reproductionChance = 0.2f;
 
     private Vector2 targetPosition;
 
-    private SpriteRenderer background;
-
-    private float minX;
-    private float maxX;
-
     void Start()
     {
-        background = GameObject.Find("Background")
-            .GetComponent<SpriteRenderer>();
-
-        Bounds bounds = background.bounds;
-
-        minX = bounds.min.x;
-        maxX = bounds.max.x;
+        health = maxHealth;
 
         ChooseNewTarget();
     }
@@ -40,26 +39,12 @@ public class FishAI : MonoBehaviour
         UpdateHealth();
     }
 
+    // -------------------------
+    // 이동
+    // -------------------------
+
     void MoveFish()
     {
-        bool outsideDepth =
-            transform.position.y < minDepth ||
-            transform.position.y > maxDepth;
-
-        if (outsideDepth)
-        {
-            float targetY = Mathf.Clamp(
-                transform.position.y,
-                minDepth,
-                maxDepth
-            );
-
-            targetPosition = new Vector2(
-                transform.position.x,
-                targetY
-            );
-        }
-
         transform.position = Vector2.MoveTowards(
             transform.position,
             targetPosition,
@@ -72,35 +57,141 @@ public class FishAI : MonoBehaviour
         }
     }
 
+    // -------------------------
+    // 체력
+    // -------------------------
+
     void UpdateHealth()
     {
-        bool outsideDepth =
-            transform.position.y < minDepth ||
-            transform.position.y > maxDepth;
-
-        if (outsideDepth)
+        if (IsInsideHabitat())
         {
-            health -= dangerHealthLoss * Time.deltaTime;
+            // 정상 상태
+            health -= normalHealthLoss * Time.deltaTime;
         }
         else
         {
-            health -= normalHealthLoss * Time.deltaTime;
+            // 서식지 밖
+            float dangerDamage =
+                maxHealth * dangerHealthLossPercent;
+
+            health -= dangerDamage * Time.deltaTime;
         }
 
-        if (health <= 0)
+        if (health <= 0f)
         {
             Destroy(gameObject);
         }
     }
 
+    // -------------------------
+    // 랜덤 목표 선택
+    // -------------------------
+
     void ChooseNewTarget()
     {
-        float randomX = Random.Range(minX, maxX);
-        float randomY = Random.Range(minDepth, maxDepth);
+        if (habitats == null || habitats.Length == 0)
+        {
+            return;
+        }
+
+        // 지정된 Background 중 하나 선택
+        GameObject habitat =
+            habitats[Random.Range(0, habitats.Length)];
+
+        SpriteRenderer sprite =
+            habitat.GetComponent<SpriteRenderer>();
+
+        if (sprite == null)
+        {
+            return;
+        }
+
+        Bounds bounds = sprite.bounds;
+
+        float randomX =
+            Random.Range(bounds.min.x, bounds.max.x);
+
+        float randomY =
+            Random.Range(bounds.min.y, bounds.max.y);
 
         targetPosition = new Vector2(
             randomX,
             randomY
+        );
+    }
+
+    // -------------------------
+    // 서식지 확인
+    // -------------------------
+
+    bool IsInsideHabitat()
+    {
+        if (habitats == null || habitats.Length == 0)
+        {
+            return false;
+        }
+
+        Vector2 position = transform.position;
+
+        foreach (GameObject habitat in habitats)
+        {
+            SpriteRenderer sprite =
+                habitat.GetComponent<SpriteRenderer>();
+
+            if (sprite == null)
+            {
+                continue;
+            }
+
+            if (sprite.bounds.Contains(position))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // -------------------------
+    // 먹이 먹기
+    // -------------------------
+
+    void OnTriggerEnter2D(Collider2D other)
+    {
+        if (foodPrefab == null)
+        {
+            return;
+        }
+
+        if (other.gameObject.name == foodPrefab.name ||
+            other.gameObject.name.Contains(foodPrefab.name))
+        {
+            EatFood(other.gameObject);
+        }
+    }
+
+    void EatFood(GameObject food)
+    {
+        // 먹이 삭제
+        Destroy(food);
+
+        // 20% 확률로 번식
+        if (Random.value <= reproductionChance)
+        {
+            Reproduce();
+        }
+    }
+
+    // -------------------------
+    // 번식
+    // -------------------------
+
+    void Reproduce()
+    {
+        Instantiate(
+            gameObject,
+            transform.position,
+            Quaternion.identity
         );
     }
 }
