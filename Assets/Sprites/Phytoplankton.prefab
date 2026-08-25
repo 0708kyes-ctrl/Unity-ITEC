@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 3438532070887001683}
   - component: {fileID: 1797580635158389698}
   - component: {fileID: -8484374215333179974}
+  - component: {fileID: -5298557471187203781}
   m_Layer: 0
   m_Name: Phytoplankton
   m_TagString: Food
@@ -105,3 +106,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PhytoplanktonLife
   lifeTime: 30
+--- !u!114 &-5298557471187203781
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1898565676152785325}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0bd84a7f04262cb42bcb03d48e7880c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FoodTarget
