@@ -5,6 +5,9 @@ public class FishAI : MonoBehaviour
     [Header("이동")]
     public float moveSpeed = 2f;
 
+    // 먹이가 없을 때 이동할 목표를 바꾸는 시간
+    public float wanderChangeTime = 3f;
+
     [Header("활동범위")]
     public GameObject[] habitats;
 
@@ -37,6 +40,11 @@ public class FishAI : MonoBehaviour
     // 현재 추적 중인 먹이
     private GameObject nearestFood;
 
+    // 먹이가 없을 때 이동할 위치
+    private Vector2 wanderTarget;
+
+    private float wanderTimer;
+
 
     // ==================================================
     // 시작
@@ -45,6 +53,9 @@ public class FishAI : MonoBehaviour
     void Start()
     {
         health = maxHealth;
+
+        // 처음부터 랜덤한 곳으로 이동
+        SetNewWanderTarget();
     }
 
 
@@ -60,10 +71,8 @@ public class FishAI : MonoBehaviour
 
         if (!IsInsideHabitat())
         {
-            // 현재 먹이 추적 포기
             ReleaseCurrentFood();
 
-            // 활동범위로 돌아감
             MoveBackToHabitat();
         }
 
@@ -73,20 +82,105 @@ public class FishAI : MonoBehaviour
 
         else
         {
-            // 가장 가까운 먹이 찾기
+            // 먹이 찾기
             FindNearestFood();
 
-            // 먹이가 있다면 추격
+            // --------------------------------------
+            // 먹이가 있으면 먹이를 추적
+            // --------------------------------------
+
             if (nearestFood != null)
             {
                 MoveToFood();
 
                 CheckFoodDistance();
             }
+
+            // --------------------------------------
+            // 먹이가 없으면 자유롭게 이동
+            // --------------------------------------
+
+            else
+            {
+                Wander();
+            }
         }
 
         // 체력 감소
         UpdateHealth();
+    }
+
+
+    // ==================================================
+    // 먹이가 없을 때 자유롭게 이동
+    // ==================================================
+
+    void Wander()
+    {
+        wanderTimer -= Time.deltaTime;
+
+        // 일정 시간이 지나면 새로운 위치 선택
+        if (wanderTimer <= 0f)
+        {
+            SetNewWanderTarget();
+        }
+
+        // 목표 위치로 이동
+        transform.position = Vector2.MoveTowards(
+            transform.position,
+            wanderTarget,
+            moveSpeed * Time.deltaTime
+        );
+
+        // 목표 위치에 도착하면 새로운 위치 선택
+        if (Vector2.Distance(
+            transform.position,
+            wanderTarget) < 0.1f)
+        {
+            SetNewWanderTarget();
+        }
+    }
+
+
+    // ==================================================
+    // 새로운 랜덤 이동 위치 선택
+    // ==================================================
+
+    void SetNewWanderTarget()
+    {
+        GameObject habitat = FindNearestHabitat();
+
+        if (habitat == null)
+        {
+            return;
+        }
+
+        SpriteRenderer sprite =
+            habitat.GetComponent<SpriteRenderer>();
+
+        if (sprite == null)
+        {
+            return;
+        }
+
+        Bounds bounds = sprite.bounds;
+
+        float randomX = Random.Range(
+            bounds.min.x,
+            bounds.max.x
+        );
+
+        float randomY = Random.Range(
+            bounds.min.y,
+            bounds.max.y
+        );
+
+        wanderTarget = new Vector2(
+            randomX,
+            randomY
+        );
+
+        wanderTimer = wanderChangeTime;
     }
 
 
@@ -205,7 +299,7 @@ public class FishAI : MonoBehaviour
     void FindNearestFood()
     {
         // ------------------------------------------
-        // 이미 추적 중인 먹이가 있는지 확인
+        // 현재 먹이를 계속 추적 중인지 확인
         // ------------------------------------------
 
         if (nearestFood != null)
@@ -216,8 +310,6 @@ public class FishAI : MonoBehaviour
             if (currentTarget != null &&
                 currentTarget.IsClaimedBy(this))
             {
-                // 아직 내가 추적 중이므로
-                // 다른 먹이를 찾지 않음
                 return;
             }
 
@@ -252,7 +344,7 @@ public class FishAI : MonoBehaviour
 
 
         // ------------------------------------------
-        // 먹이 하나씩 검사
+        // 먹이 검사
         // ------------------------------------------
 
         foreach (GameObject food in foods)
@@ -262,55 +354,32 @@ public class FishAI : MonoBehaviour
                 continue;
             }
 
-
-            // --------------------------------------
-            // 내가 먹을 수 있는 종류인지 확인
-            // --------------------------------------
-
+            // 먹을 수 있는 종류인지 확인
             if (!IsFoodTypeAllowed(food))
             {
                 continue;
             }
 
-
-            // --------------------------------------
-            // 활동범위 밖의 먹이 무시
-            // --------------------------------------
-
+            // 서식지 밖의 먹이는 무시
             if (!IsPositionInsideHabitat(
                 food.transform.position))
             {
                 continue;
             }
 
-
-            // --------------------------------------
-            // FoodTarget 확인
-            // --------------------------------------
-
             FoodTarget foodTarget =
                 food.GetComponent<FoodTarget>();
 
-            // FoodTarget이 없는 먹이는 무시
             if (foodTarget == null)
             {
                 continue;
             }
 
-
-            // --------------------------------------
             // 다른 물고기가 추적 중이면 무시
-            // --------------------------------------
-
             if (foodTarget.IsTargeted())
             {
                 continue;
             }
-
-
-            // --------------------------------------
-            // 거리 계산
-            // --------------------------------------
 
             float distance =
                 Vector2.Distance(
@@ -318,22 +387,16 @@ public class FishAI : MonoBehaviour
                     food.transform.position
                 );
 
-
-            // --------------------------------------
-            // 가장 가까운 먹이 저장
-            // --------------------------------------
-
             if (distance < nearestDistance)
             {
                 nearestDistance = distance;
-
                 bestFood = food;
             }
         }
 
 
         // ------------------------------------------
-        // 먹이를 실제로 차지
+        // 먹이 선점
         // ------------------------------------------
 
         if (bestFood != null)
@@ -356,8 +419,7 @@ public class FishAI : MonoBehaviour
 
     bool IsFoodTypeAllowed(GameObject food)
     {
-        foreach (GameObject foodPrefab
-                 in foodPrefabs)
+        foreach (GameObject foodPrefab in foodPrefabs)
         {
             if (foodPrefab == null)
             {
@@ -367,7 +429,6 @@ public class FishAI : MonoBehaviour
             string prefabName =
                 foodPrefab.name;
 
-            // 생성된 Clone 이름까지 확인
             if (food.name == prefabName ||
                 food.name.StartsWith(
                     prefabName + "("))
@@ -381,7 +442,7 @@ public class FishAI : MonoBehaviour
 
 
     // ==================================================
-    // 먹이 추격
+    // 먹이에게 이동
     // ==================================================
 
     void MoveToFood()
@@ -401,7 +462,7 @@ public class FishAI : MonoBehaviour
 
 
     // ==================================================
-    // 먹이에 닿았는지 확인
+    // 먹이와의 거리 확인
     // ==================================================
 
     void CheckFoodDistance()
@@ -425,7 +486,7 @@ public class FishAI : MonoBehaviour
 
 
     // ==================================================
-    // 먹이 먹기
+    // 먹기
     // ==================================================
 
     void EatFood(GameObject food)
@@ -435,11 +496,6 @@ public class FishAI : MonoBehaviour
             return;
         }
 
-
-        // ------------------------------------------
-        // 추적권 해제
-        // ------------------------------------------
-
         FoodTarget target =
             food.GetComponent<FoodTarget>();
 
@@ -448,20 +504,11 @@ public class FishAI : MonoBehaviour
             target.Release(this);
         }
 
-
-        // ------------------------------------------
-        // 먹이 삭제
-        // ------------------------------------------
-
         Destroy(food);
 
         nearestFood = null;
 
-
-        // ------------------------------------------
         // 체력 회복
-        // ------------------------------------------
-
         health += foodHealAmount;
 
         health = Mathf.Min(
@@ -469,17 +516,16 @@ public class FishAI : MonoBehaviour
             maxHealth
         );
 
-
-        // ------------------------------------------
         // 번식
-        // ------------------------------------------
-
         Reproduce();
+
+        // 먹은 뒤 다시 랜덤 이동 시작
+        SetNewWanderTarget();
     }
 
 
     // ==================================================
-    // 현재 추적 중인 먹이 해제
+    // 현재 먹이 추적 포기
     // ==================================================
 
     void ReleaseCurrentFood()
@@ -502,7 +548,7 @@ public class FishAI : MonoBehaviour
 
 
     // ==================================================
-    // 활동범위 확인
+    // 활동범위 안에 있는지 확인
     // ==================================================
 
     bool IsInsideHabitat()
@@ -513,10 +559,6 @@ public class FishAI : MonoBehaviour
     }
 
 
-    // ==================================================
-    // 특정 위치가 활동범위 안인지 확인
-    // ==================================================
-
     bool IsPositionInsideHabitat(
         Vector2 position)
     {
@@ -526,8 +568,7 @@ public class FishAI : MonoBehaviour
             return false;
         }
 
-        foreach (GameObject habitat
-                 in habitats)
+        foreach (GameObject habitat in habitats)
         {
             if (habitat == null)
             {
@@ -542,8 +583,7 @@ public class FishAI : MonoBehaviour
                 continue;
             }
 
-            if (sprite.bounds.Contains(
-                position))
+            if (sprite.bounds.Contains(position))
             {
                 return true;
             }
@@ -554,21 +594,19 @@ public class FishAI : MonoBehaviour
 
 
     // ==================================================
-    // 체력
+    // 체력 감소
     // ==================================================
 
     void UpdateHealth()
     {
         if (IsInsideHabitat())
         {
-            // 활동범위 안
             health -=
                 normalHealthLoss *
                 Time.deltaTime;
         }
         else
         {
-            // 활동범위 밖
             float dangerDamage =
                 maxHealth *
                 dangerHealthLossPercent;
@@ -578,8 +616,6 @@ public class FishAI : MonoBehaviour
                 Time.deltaTime;
         }
 
-
-        // 사망
         if (health <= 0f)
         {
             ReleaseCurrentFood();
@@ -604,13 +640,9 @@ public class FishAI : MonoBehaviour
             return;
         }
 
-
-        // 번식 확률
-        if (Random.value <=
-            reproductionChance)
+        if (Random.value <= reproductionChance)
         {
-            // 부모와 완전히 겹치지 않도록
-            // 주변의 작은 랜덤 위치
+            // 부모와 겹치지 않도록 약간 떨어진 위치
             Vector2 offset =
                 Random.insideUnitCircle * 0.5f;
 
@@ -623,15 +655,35 @@ public class FishAI : MonoBehaviour
                 );
 
 
-            Instantiate(
-                fishPrefab,
-                spawnPosition,
-                Quaternion.identity
-            );
+            // 새 물고기 생성
+            GameObject newFishObject =
+                Instantiate(
+                    fishPrefab,
+                    spawnPosition,
+                    Quaternion.identity
+                );
 
-            Debug.Log(
-                "번식 성공!"
-            );
+
+            // 새 물고기의 FishAI 가져오기
+            FishAI newFish =
+                newFishObject.GetComponent<FishAI>();
+
+
+            if (newFish != null)
+            {
+                // 부모와 같은 서식지
+                newFish.habitats = habitats;
+
+                // 부모와 같은 먹이
+                newFish.foodPrefabs =
+                    foodPrefabs;
+
+                // 부모와 같은 번식 대상
+                newFish.fishPrefab =
+                    fishPrefab;
+            }
+
+            Debug.Log("번식 성공!");
         }
     }
 }
