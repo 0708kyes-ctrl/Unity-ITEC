@@ -58,7 +58,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7221868818085868976, guid: ffcc2efc52fe03649a8b8f21571ec050, type: 3}
       propertyPath: m_Name
-      value: godeung_eo
+      value: godeung_eo_P
       objectReference: {fileID: 0}
     - target: {fileID: 8102359195040822716, guid: ffcc2efc52fe03649a8b8f21571ec050, type: 3}
       propertyPath: health
@@ -75,6 +75,10 @@ PrefabInstance:
     - target: {fileID: 8102359195040822716, guid: ffcc2efc52fe03649a8b8f21571ec050, type: 3}
       propertyPath: foodHealAmount
       value: 30
+      objectReference: {fileID: 0}
+    - target: {fileID: 8102359195040822716, guid: ffcc2efc52fe03649a8b8f21571ec050, type: 3}
+      propertyPath: wanderChangeTime
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 8102359195040822716, guid: ffcc2efc52fe03649a8b8f21571ec050, type: 3}
       propertyPath: habitats.Array.size
